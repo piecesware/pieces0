@@ -60,14 +60,12 @@ networks:
     ipam:
       config:
         - subnet: 192.168.91.0/24
-  # Internal facing network for Nextcloud Docker containers
-  nextcloud:
+  nextcloud: # Internal facing network for Nextcloud Docker containers
     name: nextcloud
     # Define how we want the network created
     driver: bridge
-  # Internal network to connect to databased
-  databases:
-#    external: false
+  databases: # Internal network to connect to databased
+    #external: false
     name: databases
     driver: bridge
 
@@ -174,24 +172,24 @@ services:
       #- --providers.docker.defaultRule=Host(`{{ lower (trimPrefix `/` .Name )}}.$DOMAINNAME`)
       #- --providers.docker.defaultRule=Host(`{{ normalize .Name }}.$DOMAINNAME`)
       #- --providers.docker.defaultrule=Host(`{{ trimPrefix `/` .Name }}.$DOMAINNAME`)
-      ## tls challenge for letsencrypt
-#      - --certificatesResolvers.tlsle.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+    ## tls challenge for letsencrypt
+      #- --certificatesResolvers.tlsle.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
       - --certificatesResolvers.tlsle.acme.tlschallenge=true
       - --certificatesResolvers.tlsle.acme.email=gbr476@gmail.com
       - --certificatesResolvers.tlsle.acme.storage=/volume/acme.json
-      ## http challenge for letsencrypt
-#      - --certificatesResolvers.httple.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+    ## http challenge for letsencrypt
+      #- --certificatesResolvers.httple.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
       - --certificatesResolvers.httple.acme.httpchallenge=true
       - --certificatesResolvers.httple.acme.email=gbr476@gmail.com
       - --certificatesResolvers.httple.acme.storage=/volume/acme.json
       - --certificatesResolvers.httple.acme.httpchallenge.entrypoint=http
-      ## Cloudflare DNS challenge for letsencrypt
-#      - --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
-#      - --certificatesResolvers.dns-cloudflare.acme.email=$CLOUDFLARE_EMAIL
-#      - --certificatesResolvers.dns-cloudflare.acme.storage=/acme.json
-#      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
-#      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
-#      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90 # To delay DNS check and reduce LE hitrate
+    ## Cloudflare DNS challenge for letsencrypt
+      #- --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      #- --certificatesResolvers.dns-cloudflare.acme.email=$CLOUDFLARE_EMAIL
+      #- --certificatesResolvers.dns-cloudflare.acme.storage=/acme.json
+      #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
+      #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
+      #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90 # To delay DNS check and reduce LE hitrate
 #    read_only: true
 
 # Docker Socket Proxy - Security Enchanced Proxy for Docker Socket
