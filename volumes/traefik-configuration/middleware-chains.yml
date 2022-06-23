@@ -1,0 +1,121 @@
+http:
+  middlewares:
+
+    chain-authelia:
+      chain:
+        middlewares:
+#          - middlewares-rate-limit
+          - https-redirect
+          - forward-auth
+#          - middlewares-secure-headers
+#          - middlewares-authelia
+#          - middlewares-compress
+
+    chain-authelia-wp:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+          - middlewares-secure-headers-wp
+          - middlewares-authelia
+          - middlewares-compress
+
+    chain-basic-auth:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+          - middlewares-secure-headers
+          - middlewares-basic-auth
+          - middlewares-compress
+
+    chain-bitwarden:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+
+    chain-gitea:
+      chain:
+        middlewares:
+#          - middlewares-rate-limit
+          - https-redirect
+#          - middlewares-secure-headers
+#          - middlewares-authelia
+#          - middlewares-compress
+
+    chain-oauth:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+          - middlewares-secure-headers
+          - middlewares-oauth
+          - middlewares-compress
+
+    chain-oauth-wp:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+          - middlewares-secure-headers-wp
+          - middlewares-oauth
+          - middlewares-compress
+
+    chain-nextcloud:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+          - nextcloud-middlewares-secure-headers
+          - nextcloud-redirect
+
+    chain-no-auth:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+          - middlewares-secure-headers
+          - middlewares-compress
+
+    chain-no-auth-wp:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+          - middlewares-secure-headers-wp
+          - middlewares-compress
+
+    chain-traefik-dashboard:
+      chain:
+        middlewares:
+#          - middlewares-rate-limit
+          - https-redirect
+
+    chain-web:
+      chain:
+        middlewares:
+#          - middlewares-rate-limit
+          - https-redirect
+          - forward-auth
+#          - middlewares-authelia
+
+    chain-whoami2:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+
+    chain-whoami3:
+      chain:
+        middlewares:
+          - middlewares-rate-limit
+          - https-redirect
+
+    chain-whoami4:
+      chain:
+        middlewares:
+#          - middlewares-rate-limit
+          - https-redirect
+          - forward-auth
+#          - middlewares-authelia

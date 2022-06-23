@@ -1,0 +1,59 @@
+version: "3.9"
+networks:
+  t2_proxy:
+    name: t2_proxy
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.90.0/24
+  default:
+    driver: bridge
+  socket_proxy:
+    name: socket_proxy
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.91.0/24
+services:
+  bitwarden:
+    image: vaultwarden/server:latest
+    container_name: vaultwarden
+    security_opt:
+      - no-new-privileges:true
+    networks:
+      t2_proxy:
+        ipv4_address: 192.168.90.249 # You can specify a static IP
+    environment:
+      # After you setted up your user(s) change to false
+      - "SIGNUPS_ALLOWED=true"
+    env_file:
+      - ./.env
+    volumes:
+      - ${VOLUMES}/vaultwarden/data/:/data
+    labels:
+      - traefik.enable=true
+      - traefik.docker.network=t2_proxy
+      # Redirect to get the certs
+      #- traefik.http.middlewares.redirect-https.redirectScheme.scheme=https
+      #- traefik.http.middlewares.redirect-https.redirectScheme.permanent=true
+      # routers & services
+      - traefik.http.routers.bitwarden-ui-https.rule=Host(`bw.${DOMAIN}`)
+      - traefik.http.routers.bitwarden-ui-https.entrypoints=https
+      - traefik.http.routers.bitwarden-ui-https.tls=true
+      - traefik.http.routers.bitwarden-ui.tls.certresolver=tlsle
+      - traefik.http.routers.bitwarden-ui-https.service=bitwarden-ui
+      - traefik.http.routers.bitwarden-ui-http.rule=Host(`bw.${DOMAIN}`)
+      - traefik.http.routers.bitwarden-ui-http.entrypoints=http
+      - traefik.http.routers.bitwarden-ui-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.bitwarden-ui-http.service=bitwarden-ui
+      - traefik.http.services.bitwarden-ui.loadbalancer.server.port=80
+      - traefik.http.routers.bitwarden-websocket-https.rule=Host(`bw.${DOMAIN}`) && Path(`/notifications/hub`)
+      - traefik.http.routers.bitwarden-websocket-https.entrypoints=https
+      - traefik.http.routers.bitwarden-websocket-https.tls=true
+      - traefik.http.routers.bitwarden-websocket-https.tls.certresolver=tlsle
+      - traefik.http.routers.bitwarden-websocket-https.service=bitwarden-websocket
+      - traefik.http.routers.bitwarden-websocket-http.rule=Host(`bw.${DOMAIN}`) && Path(`/notifications/hub`)
+      - traefik.http.routers.bitwarden-websocket-http.entrypoints=http
+      - traefik.http.routers.bitwarden-websocket-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.bitwarden-websocket-http.service=bitwarden-websocket
+      - traefik.http.services.bitwarden-websocket.loadbalancer.server.port=3012

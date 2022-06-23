@@ -1,0 +1,44 @@
+networks:
+  t2_proxy:
+    name: t2_proxy
+
+services:
+  minecraft:
+    image: itzg/minecraft-bedrock-server:${minecraftbedrockVersion}
+    environment:
+      EULA: "TRUE"
+      GAMEMODE: survival
+      DIFFICULTY: normal # peaceful, easy, normal, hard
+      TZ: $TZ
+#      - PUID=$PUID
+#      - PGID=$PGID
+#      MEMORY: 2G
+#      MAX_PLAYERS: 3
+#      SERVER_NAME: "allthefamily Minecraft Server"
+    networks:
+      t2_proxy:
+        ipv4_address: 192.168.90.231
+#    ports:
+#     - 19132:19132/tcp 
+#     - 19132:19132/udp
+    volumes:
+      - /etc/timezone:/etc/timezone:ro
+      - ${VOLUMES}/minecraft/saves-to-import:/worlds:ro
+      - ${VOLUMES}/minecraft:/data
+#      - ./mods.txt:/extras/mods.txt:ro
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+    stdin_open: true
+    tty: true
+    labels:
+      - "traefik.enable=true"
+      #Minecraft-TCP-Router
+#      - "traefik.tcp.routers.minecraft-tcp.rule=HostSNI(`*`)"
+#      - "traefik.tcp.routers.minecraft-tcp.entrypoints=mc-tcp"
+      #Minecraft-UDP-Router
+#      - "traefik.udp.routers.minecraft-udp.entrypoints=mc-udp"
+      - "traefik.udp.routers.bedrock.entrypoints=bedrock"
+      - "traefik.udp.routers.bedrock.service=bedrock"
+      - "traefik.udp.services.bedrock.loadbalancer.server.port=19132"

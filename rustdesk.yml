@@ -12,8 +12,10 @@ services:
       - 21118:21118
     image: rustdesk/rustdesk-server:latest
     command: hbbs -r rustdesk.${DOMAINNAME}:21117
+    env_file:
+      - ./.env
     volumes:
-      - ./hbbs:/root
+      - ${VOLUMES}/rustdesk/hbbs:/root
     networks:
       - rustdesk-net
     depends_on:
@@ -27,8 +29,10 @@ services:
       - 21119:21119
     image: rustdesk/rustdesk-server:latest
     command: hbbr
+    env_file:
+      - ./.env
     volumes:
-      - ./hbbr:/root
+      - ${VOLUMES}/rustdesk/hbbr:/root
     networks:
       - rustdesk-net
     restart: unless-stopped

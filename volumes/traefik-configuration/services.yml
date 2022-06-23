@@ -1,0 +1,16 @@
+https:
+  services:
+    # Homeassistant service example - Remove if not used
+    homeassistant:
+      loadBalancer:
+        servers:
+          - url: http://192.168.60.5:8123/
+    # pihole
+    pihole:
+      loadBalancer:
+        servers:
+          - url: "http://pi.hole:8080"
+#    web1:
+#      loadBalancer:
+#        servers:
+#        - address: "http://web"

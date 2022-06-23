@@ -1,0 +1,30 @@
+http:
+  routers:
+    #pihole
+    pihole:
+      entryPoints:
+        - http
+        - https
+      rule: Host(`dns.bfoa.info`)
+      service: pihole
+#      tls:
+#        certResolver: tlsle
+      middlewares:
+        - https-redirect@file
+    # Homeassistant routing example - Remove if not used
+    homeassistant:
+      entryPoints:
+        - https
+      rule: 'Host(`homeassistant.domain.com`)'
+      service: homeassistant
+      middlewares:
+        - "chain-homeassistant"  
+#    web1:
+      # By default, routers listen to every entry points
+#      entryPoints:
+#        - http
+#        - https
+#      rule: Host(`web1.bfoa.info`)
+#      service: web1
+#      middlewares:
+#        - chain-web1
