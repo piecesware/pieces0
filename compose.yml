@@ -89,10 +89,10 @@ services:
         published: 443
         protocol: tcp
         mode: host
-#      - target: 8080
-#        published: 8080
-#        protocol: tcp
-#        mode: host
+      #- target: 8080
+        #published: 8080
+        #protocol: tcp
+        #mode: host
       - target: 19132
         published: 19132
         protocol: udp
@@ -100,40 +100,21 @@ services:
     networks:
       t2_proxy:
         ipv4_address: 192.168.90.254 # You can specify a static IP
-#      socket_proxy:
+      #socket_proxy:
     #healthcheck:
-    #  test: ["CMD", "traefik", "healthcheck", "--ping"]
-    #  interval: 5s
-    #  retries: 3
+      #test: ["CMD", "traefik", "healthcheck", "--ping"]
+      #interval: 5s
+      #retries: 3
     volumes:
       - /etc/localtime:/etc/localtime:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
-#      - ./volume/traefik.yml:/traefik.yml:ro
-#      - ./volume/acme.json:/acme.json
-#      - ./volume:/volume
-      - /root/tkwant/docker-traefik-nextcloud-nginx/traefik/volume:/volume
-#      - ./volume/dynamic_conf.yml:/dynamic_conf.yml
-#      - ./volume/config/:/config/
-      - /root/tkwant/docker-traefik-nextcloud-nginx/traefik/volume/config/:/config/
-# traefik labels
-    labels:
-      - "com.centurylinklabs.watchtower.monitor-only"
-      #- "com.centurylinklabs.watchtower.enable=true"
-      - "traefik.enable=true"
-      - "traefik.http.routers.traefik.entrypoints=http"
-      #- "traefik.http.routers.traefik.rule=Host(`${TRAEFIKURL}`)"
-      #- "traefik.http.middlewares.traefik-auth.basicauth.users=USER:AUTH"
-      #- "traefik.http.routers.traefik.service=api@internal"
-      - traefik.http.middlewares.httpss-redirect.redirectscheme.scheme=https
-      - "traefik.http.routers.traefik.middlewares=httpss-redirect"
-      #- "traefik.http.routers.traefik.middlewares=https-redirect@file"
-      - "traefik.http.routers.traefik-secure.entrypoints=https"
-      - "traefik.http.routers.traefik-secure.rule=Host(`${TRAEFIKURL}`)"
-      #- "traefik.http.routers.traefik-secure.middlewares=chain-traefik-dashboard@file"
-      - "traefik.http.routers.traefik-secure.tls=true"
-      #- "traefik.http.routers.traefik-secure.tls.options=default"
-      - "traefik.http.routers.traefik-secure.tls.certresolver=httple"
-      - "traefik.http.routers.traefik-secure.service=api@internal"
+      #- ./volume/traefik.yml:/traefik.yml:ro
+      #- ./volume/acme.json:/acme.json
+      #- ./volume:/volume
+      - ${VOLUMES}:/volume
+      #- ./volume/dynamic_conf.yml:/dynamic_conf.yml
+      #- ./volume/config/:/config/
+      - ${VOLUMES}/traefik-configuration/:/config/
 # traefik commands
     command: # CLI arguments
       - --global.checkNewVersion=true
@@ -143,7 +124,7 @@ services:
       - --log.format=json
       - --accessLog=true
       - --accesslog.format=json
-      - --accessLog.filePath=/config/traefik.log
+      - --accessLog.filePath=/volume/traefik/traefik.log
       - --accessLog.bufferingSize=100 # Configuring a buffer of 100 lines
       - --accessLog.filters.statusCodes=400-499
       - --api=true
@@ -168,20 +149,20 @@ services:
       #- --providers.file.filename=/path/to/file # Load dynamic configuration from a file.
       - --providers.file.watch=true # Only works on top level files in the rules folder
       # Automatically set Host rule for services
-      - --providers.docker.defaultrule=Host(`{{ index .Labels "com.docker.compose.service" }}.$DOMAINNAME`)
-      #- --providers.docker.defaultRule=Host(`{{ lower (trimPrefix `/` .Name )}}.$DOMAINNAME`)
-      #- --providers.docker.defaultRule=Host(`{{ normalize .Name }}.$DOMAINNAME`)
-      #- --providers.docker.defaultrule=Host(`{{ trimPrefix `/` .Name }}.$DOMAINNAME`)
+      - --providers.docker.defaultrule=Host(`{{ index .Labels "com.docker.compose.service" }}.${DOMAIN}`)
+      #- --providers.docker.defaultRule=Host(`{{ lower (trimPrefix `/` .Name )}}.${DOMAIN}`)
+      #- --providers.docker.defaultRule=Host(`{{ normalize .Name }}.${DOMAIN}`)
+      #- --providers.docker.defaultrule=Host(`{{ trimPrefix `/` .Name }}.${DOMAIN}`)
     ## tls challenge for letsencrypt
-      #- --certificatesResolvers.tlsle.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      - --certificatesResolvers.tlsle.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
       - --certificatesResolvers.tlsle.acme.tlschallenge=true
       - --certificatesResolvers.tlsle.acme.email=gbr476@gmail.com
-      - --certificatesResolvers.tlsle.acme.storage=/volume/acme.json
+      - --certificatesResolvers.tlsle.acme.storage=/volumes/traefik-configuration/tls-certs/acme.json
     ## http challenge for letsencrypt
-      #- --certificatesResolvers.httple.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      - --certificatesResolvers.httple.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
       - --certificatesResolvers.httple.acme.httpchallenge=true
       - --certificatesResolvers.httple.acme.email=gbr476@gmail.com
-      - --certificatesResolvers.httple.acme.storage=/volume/acme.json
+      - --certificatesResolvers.httple.acme.storage=/volumes/traefik-configuration/tls-certs/acme.json
       - --certificatesResolvers.httple.acme.httpchallenge.entrypoint=http
     ## Cloudflare DNS challenge for letsencrypt
       #- --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
@@ -190,7 +171,96 @@ services:
       #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
       #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
       #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90 # To delay DNS check and reduce LE hitrate
-#    read_only: true
+    #read_only: true
+# traefik labels
+    labels:
+      - "com.centurylinklabs.watchtower.monitor-only"
+      #- "com.centurylinklabs.watchtower.enable=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=http"
+      #- "traefik.http.routers.traefik.rule=Host(`${TRAEFIK-DOMAIN}`)"
+      #- "traefik.http.middlewares.traefik-auth.basicauth.users=USER:AUTH"
+      #- "traefik.http.routers.traefik.service=api@internal"
+      - traefik.http.middlewares.httpss-redirect.redirectscheme.scheme=https
+      - "traefik.http.routers.traefik.middlewares=httpss-redirect"
+      #- "traefik.http.routers.traefik.middlewares=https-redirect@file"
+      - "traefik.http.routers.traefik-secure.entrypoints=https"
+      - "traefik.http.routers.traefik-secure.rule=Host(`${TRAEFIK-DOMAIN}`)"
+      #- "traefik.http.routers.traefik-secure.middlewares=chain-traefik-dashboard@file"
+      - "traefik.http.routers.traefik-secure.tls=true"
+      #- "traefik.http.routers.traefik-secure.tls.options=default"
+      - "traefik.http.routers.traefik-secure.tls.certresolver=httple"
+      - "traefik.http.routers.traefik-secure.service=api@internal"
+
+  whoami0:
+    # A container that exposes an API to show its IP address
+    container_name: whoami0
+    image: traefik/whoami
+    labels:
+      - "com.centurylinklabs.watchtower.monitor-only"
+      - traefik.enable=true
+      - traefik.http.routers.whoami0.rule=Host(`nossl.${DOMAIN}`)
+      - traefik.http.routers.whoami0.entrypoints=http
+    networks:
+      t2_proxy:
+        ipv4_address: 192.168.90.250 # You can specify a static IP
+
+  whoami1:
+    # A container that exposes an API to show its IP address
+    container_name: whoami1
+    image: traefik/whoami
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - traefik.enable=true
+      - traefik.http.routers.whoami1.rule=Host(`whoami.${DOMAIN}`)
+      - traefik.http.routers.whoami1.entrypoints=http
+      - traefik.http.routers.whoami1.middlewares=https-redirect@file
+      - traefik.http.routers.whoami1-https.rule=Host(`whoami.${DOMAIN}`)
+      - traefik.http.routers.whoami1-https.tls=true
+      - traefik.http.routers.whoami1-https.entrypoints=https
+      - traefik.http.routers.whoami1-https.tls.certresolver=tlsle
+      #- traefik.http.middlewares.whoami-filter-ip.ipwhitelist.sourcerange=73.76.192.137/32
+      #- traefik.http.routers.whoami1-https.middlewares=whoami-filter-ip
+      #- traefik.http.routers.whoami1-https.middlewares=global-filter-ip
+    networks:
+      t2_proxy:
+        ipv4_address: 192.168.90.251 # You can specify a static IP
+
+  whoami4:
+    container_name: whoami4
+    hostname: whoami4
+    image: httpd
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+      - traefik.enable=true
+      - traefik.http.routers.whoami4.entrypoints=http
+      #- traefik.http.routers.whoami4.middlewares=https-redirect@file
+      - traefik.http.routers.whoami4-https.middlewares=chain-whoami4@file
+      - traefik.http.routers.whoami4-https.tls=true
+      - traefik.http.routers.whoami4-https.entrypoints=https
+      - traefik.http.routers.whoami4-https.tls.certresolver=tlsle
+    networks:
+      t2_proxy:
+        ipv4_address: 192.168.90.254 # You can specify a static IP
+
+  web:
+    container_name: web
+    hostname: web
+    image: httpd
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - traefik.enable=true
+      - traefik.http.routers.web.entrypoints=http
+      - traefik.http.routers.web-https.tls=true
+      - traefik.http.routers.web-https.entrypoints=https
+      - traefik.http.routers.web-https.tls.certresolver=tlsle
+      - traefik.http.routers.web.middlewares=https-redirect@file
+      #- "traefik.http.services.web-https.loadbalancer.server.port=80"
+      #- "traefik.http.routers.web-https.middlewares=forward-auth@file"
+      - traefik.http.routers.web-https.middlewares=chain-web@file
+    networks:
+      t2_proxy:
+        ipv4_address: 192.168.90.240 # You can specify a static IP
 
 # Docker Socket Proxy - Security Enchanced Proxy for Docker Socket
   socket-proxy:
@@ -202,9 +272,9 @@ services:
         ipv4_address: 192.168.91.254 # You can specify a static IP
     # privileged: true # true for VM. False for unprivileged LXC container.
     #ports:
-    # - "127.0.0.1:2375:2375" # Port 2375 should only ever get exposed to the internal network. When possible use this line.
-    # I use the next line instead, as I want portainer to manage multiple docker endpoints within my home network.
-    # - "2375:2375"
+     #- "127.0.0.1:2375:2375" # Port 2375 should only ever get exposed to the internal network. When possible use this line.
+     # I use the next line instead, as I want portainer to manage multiple docker endpoints within my home network.
+     #- "2375:2375"
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock"
     labels:
@@ -247,106 +317,36 @@ services:
     container_name: auth
     restart: unless-stopped
     volumes:
-      - /root/tkwant/docker-traefik-nextcloud-nginx/traefik/volume/authelia:/config
+      - ${VOLUMES}/authelia:/config
     networks:
       - t2_proxy
-#    depends_on:
-#      - mariadb
-#      - redis
+    #depends_on:
+    #  - mariadb
+    #  - redis
     healthcheck:
       disable: true
     environment:
       - TZ=$TZ
-#      - AUTHELIA_JWT_SECRET_FILE=/run/secrets/authelia_jwt_secret
-#      - AUTHELIA_SESSION_SECRET_FILE=/run/secrets/authelia_session_secret
-#      - AUTHELIA_STORAGE_MYSQL_PASSWORD_FILE=/run/secrets/authelia_storage_mysql_password
-#      - AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE=/run/secrets/authelia_notifier_smtp_password
-#      - AUTHELIA_DUO_API_SECRET_KEY_FILE=/run/secrets/authelia_duo_api_secret_key
+      #- AUTHELIA_JWT_SECRET_FILE=/run/secrets/authelia_jwt_secret
+      #- AUTHELIA_SESSION_SECRET_FILE=/run/secrets/authelia_session_secret
+      #- AUTHELIA_STORAGE_MYSQL_PASSWORD_FILE=/run/secrets/authelia_storage_mysql_password
+      #- AUTHELIA_NOTIFIER_SMTP_PASSWORD_FILE=/run/secrets/authelia_notifier_smtp_password
+      #- AUTHELIA_DUO_API_SECRET_KEY_FILE=/run/secrets/authelia_duo_api_secret_key
     labels:
       - "com.centurylinklabs.watchtower.monitor-only"
       - traefik.enable=true
-#      - traefik.docker.network=traefik_public
-#      - "traefik.http.routers.authelia.rule=Host(`auth.bfoa.info`)"
+      #- traefik.docker.network=traefik_public
+      #- "traefik.http.routers.authelia.rule=Host(`${AUTHELIA-DOMAIN}`)"
       - traefik.http.routers.authelia.entrypoints=http
       - traefik.http.routers.authelia.middlewares=https-redirect@file,forward-auth@file
       - traefik.http.routers.authelia-https.entrypoints=https
       - traefik.http.routers.authelia-https.tls=true
       - traefik.http.routers.authelia-https.tls.certresolver=tlsle
-#      - traefik.http.routers.authelia-https.middlewares=chain-authelia@file
+      #- traefik.http.routers.authelia-https.middlewares=chain-authelia@file
       - traefik.http.services.authelia.loadbalancer.server.port=9091
-#      - traefik.http.middlewares.authelia.forwardauth.address=http://authelia:9091/api/verify?rd=https://auth.bfoa.info
-#      - traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true
-#      - traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User, Remote-Groups # , Remote-Name, Remote-Email
-
-  whoami4:
-    container_name: whoami4
-    hostname: whoami4
-    image: httpd
-    labels:
-      - "com.centurylinklabs.watchtower.enable=false"
-      - traefik.enable=true
-      - traefik.http.routers.whoami4.entrypoints=http
-#      - traefik.http.routers.whoami4.middlewares=https-redirect@file
-      - traefik.http.routers.whoami4-https.middlewares=chain-whoami4@file
-      - traefik.http.routers.whoami4-https.tls=true
-      - traefik.http.routers.whoami4-https.entrypoints=https
-      - traefik.http.routers.whoami4-https.tls.certresolver=tlsle
-    networks:
-      t2_proxy:
-        ipv4_address: 192.168.90.244 # You can specify a static IP
-
-  web:
-    container_name: web
-    hostname: web
-    image: httpd
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-      - traefik.enable=true
-      - traefik.http.routers.web.entrypoints=http
-      - traefik.http.routers.web-https.tls=true
-      - traefik.http.routers.web-https.entrypoints=https
-      - traefik.http.routers.web-https.tls.certresolver=tlsle
-      - traefik.http.routers.web.middlewares=https-redirect@file
-#      - "traefik.http.services.web-https.loadbalancer.server.port=80"
-#      - "traefik.http.routers.web-https.middlewares=forward-auth@file"
-      - traefik.http.routers.web-https.middlewares=chain-web@file
-    networks:
-      t2_proxy:
-        ipv4_address: 192.168.90.240 # You can specify a static IP
-
-  whoami0:
-    # A container that exposes an API to show its IP address
-    container_name: whoami0
-    image: traefik/whoami
-    labels:
-      - "com.centurylinklabs.watchtower.monitor-only"
-      - traefik.enable=true
-      - traefik.http.routers.whoami0.rule=Host(`nossl.$DOMAINNAME`)
-      - traefik.http.routers.whoami0.entrypoints=http
-    networks:
-      t2_proxy:
-        ipv4_address: 192.168.90.250 # You can specify a static IP
-
-  whoami1:
-    # A container that exposes an API to show its IP address
-    container_name: whoami1
-    image: traefik/whoami
-    labels:
-      - "com.centurylinklabs.watchtower.enable=true"
-      - traefik.enable=true
-      - traefik.http.routers.whoami1.rule=Host(`whoami.$DOMAINNAME`)
-      - traefik.http.routers.whoami1.entrypoints=http
-      - traefik.http.routers.whoami1.middlewares=https-redirect@file
-      - traefik.http.routers.whoami1-https.rule=Host(`whoami.$DOMAINNAME`)
-      - traefik.http.routers.whoami1-https.tls=true
-      - traefik.http.routers.whoami1-https.entrypoints=https
-      - traefik.http.routers.whoami1-https.tls.certresolver=tlsle
-#      - traefik.http.middlewares.whoami-filter-ip.ipwhitelist.sourcerange=73.76.192.137/32
-#      - traefik.http.routers.whoami1-https.middlewares=whoami-filter-ip
-#      - traefik.http.routers.whoami1-https.middlewares=global-filter-ip
-    networks:
-      t2_proxy:
-        ipv4_address: 192.168.90.251 # You can specify a static IP
+      #- traefik.http.middlewares.authelia.forwardauth.address=http://auth:9091/api/verify?rd=https://${AUTHELIA-DOMAIN}
+      #- traefik.http.middlewares.authelia.forwardauth.trustForwardHeader=true
+      #- traefik.http.middlewares.authelia.forwardauth.authResponseHeaders=Remote-User, Remote-Groups # , Remote-Name, Remote-Email
 
   gitea:
     container_name: gitea
@@ -366,24 +366,24 @@ services:
       - USER=git
       - RUN_MODE=prod
       - DISABLE_REGISTRATION=true
-      - DOMAIN=$DOMAINNAME
-      - SSH_DOMAIN=gitea.$DOMAINNAME
+      - DOMAIN=${DOMAIN}
+      - SSH_DOMAIN=${GITEA-DOMAIN}
       - HTTP_PORT=3000
-      - ROOT_URL=https://gitea.$DOMAINNAME
+      - ROOT_URL=https://${GITEA-DOMAIN}
       - SSH_PORT=222
       - SSH_LISTEN_PORT=22
-#      - GITEA__database__DB_TYPE=mysql
-#      - GITEA__database__HOST=db:3306
-#      - GITEA__database__NAME=gitea
-#      - GITEA__database__USER=gitea
-#      - GITEA__database__PASSWD=gitea
-#      - GITEA__webhook__ALLOWED_HOST_LIST=192.168.100.0/24
+      #- GITEA__database__DB_TYPE=mysql
+      #- GITEA__database__HOST=db:3306
+      #- GITEA__database__NAME=gitea
+      #- GITEA__database__USER=gitea
+      #- GITEA__database__PASSWD=gitea
+      #- GITEA__webhook__ALLOWED_HOST_LIST=192.168.100.0/24
       - DB_TYPE=postgres
       - DB_HOST=postgres:5432
       - DB_NAME=${DB_NAME:-gitea}
       - DB_USER=${DB_USER:-gitea}
       - DB_PASSWD=${DB_PASSWD:-test}
-#      - DB_TYPE=sqlite3
+      #- DB_TYPE=sqlite3
       - GITEA__cache__ENABLED=true
       - GITEA__cache__ADAPTER=redis
       - GITEA__cache__HOST=redis://gitea-cache:6379/0?pool_size=100&idle_timeout=180s
@@ -395,7 +395,7 @@ services:
         ipv4_address: 192.168.90.100
       databases:
     volumes:
-      - /root/tkwant/docker-traefik-nextcloud-nginx/traefik/volume/gitea:/data
+      - ${VOLUMES}/gitea:/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
     labels:
@@ -406,7 +406,7 @@ services:
       - traefik.http.routers.gitea.middlewares=chain-gitea@file
       - traefik.http.routers.gitea-https.tls=true
       # If a service connecting to Gitea does not support TLS v1.3 yet
-#       - "traefik.http.routers.gitea.tls.options=mintls12@file"
+      #- "traefik.http.routers.gitea.tls.options=mintls12@file"
       - traefik.http.routers.gitea-https.entrypoints=https
       - "traefik.http.routers.gitea-https.tls.certresolver=tlsle"
       - "traefik.http.routers.gitea-https.service=gitea-service"
@@ -421,7 +421,7 @@ services:
     image: redis:${redisVersion} #6-alpine
     restart: unless-stopped
     networks:
-#      - t2_proxy
+      #- t2_proxy
       - databases
     labels:
       - "com.centurylinklabs.watchtower.monitor-only"
@@ -437,30 +437,30 @@ services:
 
   postgres:
     container_name: postgres
-    image: postgres:${progresVersion} #13
-#    mem_limit: "100m"
-#    cpus: "0.2"
+    image: postgres:${postgresVersion} #13
+    #mem_limit: "100m"
+    #cpus: "0.2"
     restart: always
-#    environment:
-#      - POSTGRES_USER=gitea
-#      - POSTGRES_PASSWORD=gitea
-#      - POSTGRES_DB=gitea
+    #environment:
+      #- POSTGRES_USER=gitea
+      #- POSTGRES_PASSWORD=gitea
+      #- POSTGRES_DB=gitea
     environment:
       - POSTGRES_USER=${DB_USER:-gitea}
       - POSTGRES_PASSWORD=${DB_PASSWD:-test}
       - POSTGRES_DB=${DB_NAME:-gitea}
     networks:
-#      - t2_proxy
+      #- t2_proxy
       - databases
     volumes:
-      - /root/tkwant/docker-traefik-nextcloud-nginx/traefik/volume/gitea-db:/var/lib/postgresql/data
+      - ${VOLUMES}/gitea-db:/var/lib/postgresql/data
     labels:
       - "com.centurylinklabs.watchtower.monitor-only"
-#    healthcheck:
-#      test: ["CMD", "redis-cli", "ping"]
-#      interval: 15s
-#      timeout: 3s
-#      retries: 30
+    #healthcheck:
+      #test: ["CMD", "redis-cli", "ping"]
+      #interval: 15s
+      #timeout: 3s
+      #retries: 30
     healthcheck:
       test: ["CMD-SHELL", "pg_isready"]
       interval: 10s
@@ -474,33 +474,33 @@ services:
     ports:
       - 8096:8096
       - 8920:8920
-#      - 7359:7359/udp #optional
-#      - 1900:1900/udp #optional
+      #- 7359:7359/udp #optional
+      #- 1900:1900/udp #optional
     volumes:
-      - "${APP_DIR:?err}/jellyfin:/config:rw"
-      - "${APP_DIR:?err}/jellyfin/cache:/cache:rw"
-      - "${APP_DIR:?err}/jellyfin/metadata:/config/metadata"
-      - "${MEDIA_DIR:?err}:/data/videos:ro"
-      - "${TRANSCODE_DIR:?err}:/data/transcode:rw"  # Offload transcoding to RAM if you have enough RAM
+      - "${VOLUMES}/jellyfin:/config:rw"
+      - "${VOLUMES}/jellyfin/cache:/cache:rw"
+      - "${VOLUMES}/jellyfin/metadata:/config/metadata"
+      - "${MEDIA-DIR:?err}:/data/videos:ro"
+      - "${TRANSCODE-DIR:?err}:/data/transcode:rw"  # Offload transcoding to RAM if you have enough RAM
     environment:
       TZ: ${TZ:?err}
-#      PGID: ${ID:?err}
-#      PUID: ${ID:?err}
-#      UMASK: ${UMASK:?err}
-#      - JELLYFIN_PublishedServerUrl=192.168.0.5 #optional
+      #PGID: ${ID:?err}
+      #PUID: ${ID:?err}
+      #UMASK: ${UMASK:?err}
+      #- JELLYFIN_PublishedServerUrl=192.168.0.5 #optional
     restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: '2'
           memory: 4096M
-#    devices:
-#       - /dev/dri:/dev/dri  # for harware transcoding
-#    logging:
-#      driver: "json-file"
-#      options:
-#        max-size: "10m"
-#        max-file: "5"
+    #devices:
+       #- /dev/dri:/dev/dri  # for harware transcoding
+    #logging:
+      #driver: "json-file"
+      #options:
+        #max-size: "10m"
+        #max-file: "5"
     labels:
       - "com.centurylinklabs.watchtower.monitor-only"
       - traefik.enable=true
@@ -520,46 +520,46 @@ services:
   emby:
     container_name: emby
     image: emby/embyserver:latest
-#    image: lscr.io/linuxserver/emby:latest
+    #image: lscr.io/linuxserver/emby:latest
     ports:
       - 8196:8096
       - 8921:8920
-#    expose:
-#      - 7359:7359/udp #optional
-#      - 1900:1900/udp #optional
+    #expose:
+      #- 7359:7359/udp #optional
+      #- 1900:1900/udp #optional
     volumes:
-      - "${APP_DIR:?err}/emby:/config:rw"
-      - "${APP_DIR:?err}/emby/cache:/cache:rw"
-      - "${APP_DIR:?err}/emby/metadata:/config/metadata"
-      - "${MEDIA_DIR:?err}:/data/videos:ro"
-      - "${TRANSCODE_DIR:?err}:/data/transcode:rw"  # Offload transcoding to RAM if you have enough RAM
+      - "${VOLUMES}/emby:/config:rw"
+      - "${VOLUMES}/emby/cache:/cache:rw"
+      - "${VOLUMES}/emby/metadata:/config/metadata"
+      - "${MEDIA-DIR:?err}:/data/videos:ro"
+      - "${TRANSCODE-DIR:?err}:/data/transcode:rw"  # Offload transcoding to RAM if you have enough RAM
     environment:
       TZ: ${TZ:?err}
-#      PGID: ${ID:?err}
-#      PUID: ${ID:?err}
-#      UMASK: ${UMASK:?err}
-#      - JELLYFIN_PublishedServerUrl=192.168.0.5 #optional
+      #PGID: ${ID:?err}
+      #PUID: ${ID:?err}
+      #UMASK: ${UMASK:?err}
+      #- JELLYFIN_PublishedServerUrl=192.168.0.5 #optional
     restart: unless-stopped
     deploy:
       resources:
         limits:
           cpus: '2'
           memory: 4096M
-#    devices:
-#       - /dev/dri:/dev/dri  # for harware transcoding
-#    logging:
-#      driver: "json-file"
-#      options:
-#        max-size: "10m"
-#        max-file: "5"
+    #devices:
+       #- /dev/dri:/dev/dri  # for harware transcoding
+    #logging:
+      #driver: "json-file"
+      #options:
+        #max-size: "10m"
+        #max-file: "5"
     labels:
       - "com.centurylinklabs.watchtower.monitor-only"
       - traefik.enable=true
       - traefik.http.routers.emby.entrypoints=http
-      - traefik.http.routers.emby.rule=Host(`emby.$DOMAINNAME`)
+      - traefik.http.routers.emby.rule=Host(`emby.${DOMAIN}`)
       - traefik.http.routers.emby.middlewares=https-redirect@file
       - traefik.http.routers.emby-https.tls=true
-      - traefik.http.routers.emby-https.rule=Host(`emby.$DOMAINNAME`)
+      - traefik.http.routers.emby-https.rule=Host(`emby.${DOMAIN}`)
       - traefik.http.routers.emby-https.entrypoints=https
       - traefik.http.routers.emby-https.tls.certresolver=tlsle
       - traefik.http.routers.emby-https.middlewares=chain-no-auth@file
