@@ -1,0 +1,156 @@
+services:
+# traefik reverse proxy
+  traefik:
+    image: traefik:${traefikVersion:-2.6.6} #v2.7.0
+    container_name: traefik
+    hostname: traefik
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    security_opt:
+      - no-new-privileges:true
+    ports:
+      - target: 80
+        published: 80
+        protocol: tcp
+        mode: host
+      - target: 443
+        published: 443
+        protocol: tcp
+        mode: host
+      #- target: 8080
+        #published: 8080
+        #protocol: tcp
+        #mode: host
+      - target: 19132
+        published: 19132
+        protocol: udp
+        mode: host
+    networks:
+      t2_proxy:
+        ipv4_address: 192.168.90.254 # You can specify a static IP
+      #socket_proxy:
+    #healthcheck:
+      #test: ["CMD", "traefik", "healthcheck", "--ping"]
+      #interval: 5s
+      #retries: 3
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      #- ./volume/traefik.yml:/traefik.yml:ro
+      #- ./volume/acme.json:/acme.json
+      #- ./volume:/volume
+      - ${VOLUMES}:/volume
+      #- ./volume/dynamic_conf.yml:/dynamic_conf.yml
+      #- ./volume/config/:/config/
+      - ${VOLUMES}/traefik-configuration/:/config/
+# traefik commands
+    command: # CLI arguments
+      - --global.checkNewVersion=true
+      - --global.sendAnonymousUsage=false
+      - --log=true
+      - --log.level=DEBUG # (Default: error) DEBUG, INFO, WARN, ERROR, FATAL, PANIC
+      - --log.format=json
+      - --accessLog=true
+      - --accesslog.format=json
+      - --accessLog.filePath=/volume/traefik/traefik.log
+      - --accessLog.bufferingSize=100 # Configuring a buffer of 100 lines
+      - --accessLog.filters.statusCodes=400-499
+      - --api=true
+      - --api.insecure=false
+      - --api.dashboard=true
+      #- --ping=true
+      - --serversTransport.insecureSkipVerify=true
+      - --entrypoints.http.address=:80
+      - --entryPoints.https.address=:443
+      #- --entryPoints.traefik.address=:8080
+      - --entryPoints.bedrock.address=:19132/udp
+      ## Allow these IPs to set the X-Forwarded-* headers - Cloudflare IPs: https://www.cloudflare.com/ips/
+      #- --entrypoints.https.forwardedHeaders.trustedIPs=173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.>
+      - --providers.docker=true
+      - --providers.docker.network=t2_proxy
+      - --providers.docker.endpoint=unix:///var/run/docker.sock # Use Docker Socket Proxy instead for improved security
+      #- --providers.docker.endpoint=tcp://socket-proxy:2375
+      - --providers.docker.exposedByDefault=false
+      - --providers.docker.swarmMode=false
+      # Load dynamic configuration from one or more .toml or .yml files in a directory.
+      - --providers.file.directory=/config/ 
+      #- --providers.file.filename=/path/to/file # Load dynamic configuration from a file.
+      - --providers.file.watch=true # Only works on top level files in the rules folder
+      # Automatically set Host rule for services
+      - --providers.docker.defaultrule=Host(`{{ index .Labels "com.docker.compose.service" }}.${DOMAIN}`)
+      #- --providers.docker.defaultRule=Host(`{{ lower (trimPrefix `/` .Name )}}.${DOMAIN}`)
+      #- --providers.docker.defaultRule=Host(`{{ normalize .Name }}.${DOMAIN}`)
+      #- --providers.docker.defaultrule=Host(`{{ trimPrefix `/` .Name }}.${DOMAIN}`)
+    ## tls challenge for letsencrypt
+      - --certificatesResolvers.tlsle.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      - --certificatesResolvers.tlsle.acme.tlschallenge=true
+      - --certificatesResolvers.tlsle.acme.email=gbr476@gmail.com
+      - --certificatesResolvers.tlsle.acme.storage=/volumes/traefik-configuration/tls-certs/acme.json
+    ## http challenge for letsencrypt
+      - --certificatesResolvers.httple.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      - --certificatesResolvers.httple.acme.httpchallenge=true
+      - --certificatesResolvers.httple.acme.email=gbr476@gmail.com
+      - --certificatesResolvers.httple.acme.storage=/volumes/traefik-configuration/tls-certs/acme.json
+      - --certificatesResolvers.httple.acme.httpchallenge.entrypoint=http
+    ## Cloudflare DNS challenge for letsencrypt
+      #- --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      #- --certificatesResolvers.dns-cloudflare.acme.email=$CLOUDFLARE_EMAIL
+      #- --certificatesResolvers.dns-cloudflare.acme.storage=/acme.json
+      #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
+      #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
+      #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90 # To delay DNS check and reduce LE hitrate
+    #read_only: true
+# traefik labels
+    labels:
+      - "com.centurylinklabs.watchtower.monitor-only"
+      #- "com.centurylinklabs.watchtower.enable=true"
+      - "traefik.enable=true"
+      - "traefik.http.routers.traefik.entrypoints=http"
+      #- "traefik.http.routers.traefik.rule=Host(`${TRAEFIK-DOMAIN}`)"
+      #- "traefik.http.middlewares.traefik-auth.basicauth.users=USER:AUTH"
+      #- "traefik.http.routers.traefik.service=api@internal"
+      - traefik.http.middlewares.httpss-redirect.redirectscheme.scheme=https
+      - "traefik.http.routers.traefik.middlewares=httpss-redirect"
+      #- "traefik.http.routers.traefik.middlewares=https-redirect@file"
+      - "traefik.http.routers.traefik-secure.entrypoints=https"
+      - "traefik.http.routers.traefik-secure.rule=Host(`${TRAEFIK-DOMAIN}`)"
+      #- "traefik.http.routers.traefik-secure.middlewares=chain-traefik-dashboard@file"
+      - "traefik.http.routers.traefik-secure.tls=true"
+      #- "traefik.http.routers.traefik-secure.tls.options=default"
+      - "traefik.http.routers.traefik-secure.tls.certresolver=httple"
+      - "traefik.http.routers.traefik-secure.service=api@internal"
+
+  whoami0:
+    # A container that exposes an API to show its IP address
+    container_name: whoami0
+    image: traefik/whoami
+    labels:
+      - "com.centurylinklabs.watchtower.monitor-only"
+      - traefik.enable=true
+      - traefik.http.routers.whoami0.rule=Host(`nossl.${DOMAIN}`)
+      - traefik.http.routers.whoami0.entrypoints=http
+    networks:
+      t2_proxy:
+        ipv4_address: 192.168.90.250 # You can specify a static IP
+
+  whoami1:
+    # A container that exposes an API to show its IP address
+    container_name: whoami1
+    image: traefik/whoami
+    labels:
+      - "com.centurylinklabs.watchtower.enable=true"
+      - traefik.enable=true
+      - traefik.http.routers.whoami1.rule=Host(`whoami.${DOMAIN}`)
+      - traefik.http.routers.whoami1.entrypoints=http
+      - traefik.http.routers.whoami1.middlewares=https-redirect@file
+      - traefik.http.routers.whoami1-https.rule=Host(`whoami.${DOMAIN}`)
+      - traefik.http.routers.whoami1-https.tls=true
+      - traefik.http.routers.whoami1-https.entrypoints=https
+      - traefik.http.routers.whoami1-https.tls.certresolver=tlsle
+      #- traefik.http.middlewares.whoami-filter-ip.ipwhitelist.sourcerange=73.76.192.137/32
+      #- traefik.http.routers.whoami1-https.middlewares=whoami-filter-ip
+      #- traefik.http.routers.whoami1-https.middlewares=global-filter-ip
+    networks:
+      t2_proxy:
+        ipv4_address: 192.168.90.251 # You can specify a static IP
