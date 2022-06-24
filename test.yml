@@ -1,3 +1,27 @@
+networks:
+  t2_proxy:
+    name: t2_proxy
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.90.0/24
+  default:
+    driver: bridge
+  socket_proxy:
+    name: socket_proxy
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 192.168.91.0/24
+  nextcloud: # Internal facing network for Nextcloud Docker containers
+    name: nextcloud
+    # Define how we want the network created
+    driver: bridge
+  databases: # Internal network to connect to databased
+    #external: false
+    name: databases
+    driver: bridge
+
 services:
 # traefik reverse proxy
   traefik:
@@ -53,7 +77,7 @@ services:
       - --log.format=json
       - --accessLog=true
       - --accesslog.format=json
-      - --accessLog.filePath=/volume/traefik/traefik.log
+      - --accessLog.filePath=/config/traefik.log
       - --accessLog.bufferingSize=100 # Configuring a buffer of 100 lines
       - --accessLog.filters.statusCodes=400-499
       - --api=true
@@ -95,7 +119,7 @@ services:
       - --certificatesResolvers.httple.acme.httpchallenge.entrypoint=http
     ## Cloudflare DNS challenge for letsencrypt
       #- --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
-      #- --certificatesResolvers.dns-cloudflare.acme.email=$CLOUDFLARE_EMAIL
+      #- --certificatesResolvers.dns-cloudflare.acme.email=${CLOUDFLARE_EMAIL}
       #- --certificatesResolvers.dns-cloudflare.acme.storage=/acme.json
       #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
       #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
@@ -107,14 +131,14 @@ services:
       #- "com.centurylinklabs.watchtower.enable=true"
       - "traefik.enable=true"
       - "traefik.http.routers.traefik.entrypoints=http"
-      #- "traefik.http.routers.traefik.rule=Host(`${TRAEFIK-DOMAIN}`)"
+      #- "traefik.http.routers.traefik.rule=Host(`${TRAEFIK_DOMAIN}`)"
       #- "traefik.http.middlewares.traefik-auth.basicauth.users=USER:AUTH"
       #- "traefik.http.routers.traefik.service=api@internal"
       - traefik.http.middlewares.httpss-redirect.redirectscheme.scheme=https
       - "traefik.http.routers.traefik.middlewares=httpss-redirect"
       #- "traefik.http.routers.traefik.middlewares=https-redirect@file"
       - "traefik.http.routers.traefik-secure.entrypoints=https"
-      - "traefik.http.routers.traefik-secure.rule=Host(`${TRAEFIK-DOMAIN}`)"
+      - "traefik.http.routers.traefik-secure.rule=Host(`${TRAEFIK_DOMAIN}`)"
       #- "traefik.http.routers.traefik-secure.middlewares=chain-traefik-dashboard@file"
       - "traefik.http.routers.traefik-secure.tls=true"
       #- "traefik.http.routers.traefik-secure.tls.options=default"
