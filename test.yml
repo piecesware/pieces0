@@ -110,12 +110,12 @@ services:
       - --certificatesResolvers.tlsle.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
       - --certificatesResolvers.tlsle.acme.tlschallenge=true
       - --certificatesResolvers.tlsle.acme.email=gbr476@gmail.com
-      - --certificatesResolvers.tlsle.acme.storage=/volumes/traefik-configuration/tls-certs/acme.json
+      - --certificatesResolvers.tlsle.acme.storage=/volume/traefik-configuration/tls-certs/acme.json
     ## http challenge for letsencrypt
       - --certificatesResolvers.httple.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
       - --certificatesResolvers.httple.acme.httpchallenge=true
       - --certificatesResolvers.httple.acme.email=gbr476@gmail.com
-      - --certificatesResolvers.httple.acme.storage=/volumes/traefik-configuration/tls-certs/acme.json
+      - --certificatesResolvers.httple.acme.storage=/volume/traefik-configuration/tls-certs/acme.json
       - --certificatesResolvers.httple.acme.httpchallenge.entrypoint=http
     ## Cloudflare DNS challenge for letsencrypt
       #- --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
