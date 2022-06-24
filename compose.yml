@@ -4,6 +4,10 @@
 # There is no need to create any networks outside this docker-compose file.
 # You may customize the network subnets (192.168.90.0/24 and 91.0/24) below as you please.
 # Docker Compose version 3.5 or higher required to define networks this way.
+# Need to start the traefik network before running:
+  # docker network create --gateway 192.168.90.1 --subnet 192.168.90.0/24 traefik_proxy
+  # docker network create --gateway 192.168.91.1 --subnet 192.168.91.0/24 socket_proxy
+# Trail logs using (docker logs -f traefik). Change "traefik" to name of container you want to trail
 
 ########################### EXTENSION FIELDS
 # Helps eliminate repetition of sections
@@ -18,7 +22,7 @@ x-environment: &default-tz-puid-pgid
 # Keys common to some of the services in basic-services.txt
 x-common-keys-core: &common-keys-core
   networks:
-    - t2_proxy
+    - traefik_proxy
   security_opt:
     - no-new-privileges:true
   restart: always
@@ -28,7 +32,7 @@ x-common-keys-core: &common-keys-core
 # Keys common to some of the services in basic-services.txt
 x-common-keys-core: &common-keys-monitoring
   networks:
-    - t2_proxy
+    - traefik_proxy
   security_opt:
     - no-new-privileges:true
   restart: always
@@ -38,7 +42,7 @@ x-common-keys-core: &common-keys-monitoring
 # Keys common to some of the dependent services/apps
 x-common-keys-apps: &common-keys-apps
   networks:
-    - t2_proxy
+    - traefik_proxy
   security_opt:
     - no-new-privileges:true
   restart: unless-stopped
@@ -46,8 +50,8 @@ x-common-keys-apps: &common-keys-apps
   # - apps
 
 networks:
-  t2_proxy:
-    name: t2_proxy
+  traefik_proxy:
+    name: traefik_proxy
     driver: bridge
     ipam:
       config:
@@ -61,6 +65,7 @@ networks:
       config:
         - subnet: 192.168.91.0/24
   nextcloud: # Internal facing network for Nextcloud Docker containers
+    #external: false
     name: nextcloud
     # Define how we want the network created
     driver: bridge
@@ -98,8 +103,8 @@ services:
         protocol: udp
         mode: host
     networks:
-      t2_proxy:
-        ipv4_address: 192.168.90.254 # You can specify a static IP
+      traefik_proxy:
+        ipv4_address: 192.168.90.2 # You can specify a static IP
       #socket_proxy:
     #healthcheck:
       #test: ["CMD", "traefik", "healthcheck", "--ping"]
@@ -139,7 +144,7 @@ services:
       ## Allow these IPs to set the X-Forwarded-* headers - Cloudflare IPs: https://www.cloudflare.com/ips/
       #- --entrypoints.https.forwardedHeaders.trustedIPs=173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.>
       - --providers.docker=true
-      - --providers.docker.network=t2_proxy
+      - --providers.docker.network=traefik_proxy
       - --providers.docker.endpoint=unix:///var/run/docker.sock # Use Docker Socket Proxy instead for improved security
       #- --providers.docker.endpoint=tcp://socket-proxy:2375
       - --providers.docker.exposedByDefault=false
@@ -154,23 +159,23 @@ services:
       #- --providers.docker.defaultRule=Host(`{{ normalize .Name }}.${DOMAIN}`)
       #- --providers.docker.defaultrule=Host(`{{ trimPrefix `/` .Name }}.${DOMAIN}`)
     ## tls challenge for letsencrypt
-      - --certificatesResolvers.tlsle.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      #- --certificatesResolvers.tlsle.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
       - --certificatesResolvers.tlsle.acme.tlschallenge=true
       - --certificatesResolvers.tlsle.acme.email=gbr476@gmail.com
-      - --certificatesResolvers.tlsle.acme.storage=/volumes/traefik-configuration/tls-certs/acme.json
+      - --certificatesResolvers.tlsle.acme.storage=/volume/traefik-configuration/tls-certs/acme.json
     ## http challenge for letsencrypt
-      - --certificatesResolvers.httple.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
+      #- --certificatesResolvers.httple.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
       - --certificatesResolvers.httple.acme.httpchallenge=true
       - --certificatesResolvers.httple.acme.email=gbr476@gmail.com
-      - --certificatesResolvers.httple.acme.storage=/volumes/traefik-configuration/tls-certs/acme.json
+      - --certificatesResolvers.httple.acme.storage=/volume/traefik-configuration/tls-certs/acme.json
       - --certificatesResolvers.httple.acme.httpchallenge.entrypoint=http
     ## Cloudflare DNS challenge for letsencrypt
       #- --certificatesResolvers.dns-cloudflare.acme.caServer=https://acme-staging-v02.api.letsencrypt.org/directory # LetsEncrypt Staging Server - uncomment when testing
-      #- --certificatesResolvers.dns-cloudflare.acme.email=${CLOUDFLARE_EMAIL}
-      #- --certificatesResolvers.dns-cloudflare.acme.storage=/acme.json
-      #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
-      #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
-      #- --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90 # To delay DNS check and reduce LE hitrate
+      - --certificatesResolvers.dns-cloudflare.acme.email=${CLOUDFLARE_EMAIL}
+      - --certificatesResolvers.dns-cloudflare.acme.storage=/volume/traefik-configuration/tls-certs/acme.json
+      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.provider=cloudflare
+      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.resolvers=1.1.1.1:53,1.0.0.1:53
+      - --certificatesResolvers.dns-cloudflare.acme.dnsChallenge.delayBeforeCheck=90 # To delay DNS check and reduce LE hitrate
     #read_only: true
 # traefik labels
     labels:
@@ -202,7 +207,7 @@ services:
       - traefik.http.routers.whoami0.rule=Host(`nossl.${DOMAIN}`)
       - traefik.http.routers.whoami0.entrypoints=http
     networks:
-      t2_proxy:
+      traefik_proxy:
         ipv4_address: 192.168.90.250 # You can specify a static IP
 
   whoami1:
@@ -223,7 +228,7 @@ services:
       #- traefik.http.routers.whoami1-https.middlewares=whoami-filter-ip
       #- traefik.http.routers.whoami1-https.middlewares=global-filter-ip
     networks:
-      t2_proxy:
+      traefik_proxy:
         ipv4_address: 192.168.90.251 # You can specify a static IP
 
   whoami4:
@@ -240,7 +245,7 @@ services:
       - traefik.http.routers.whoami4-https.entrypoints=https
       - traefik.http.routers.whoami4-https.tls.certresolver=tlsle
     networks:
-      t2_proxy:
+      traefik_proxy:
         ipv4_address: 192.168.90.254 # You can specify a static IP
 
   web:
@@ -259,7 +264,7 @@ services:
       #- "traefik.http.routers.web-https.middlewares=forward-auth@file"
       - traefik.http.routers.web-https.middlewares=chain-web@file
     networks:
-      t2_proxy:
+      traefik_proxy:
         ipv4_address: 192.168.90.240 # You can specify a static IP
 
 # Docker Socket Proxy - Security Enchanced Proxy for Docker Socket
@@ -319,7 +324,7 @@ services:
     volumes:
       - ${VOLUMES}/authelia:/config
     networks:
-      - t2_proxy
+      - traefik_proxy
     #depends_on:
     #  - mariadb
     #  - redis
@@ -391,7 +396,7 @@ services:
     ports:
       - "222:22"
     networks:
-      t2_proxy:
+      traefik_proxy:
         ipv4_address: 192.168.90.100
       databases:
     volumes:
@@ -421,7 +426,7 @@ services:
     image: redis:${redisVersion} #6-alpine
     restart: unless-stopped
     networks:
-      #- t2_proxy
+      #- traefik_proxy
       - databases
     labels:
       - "com.centurylinklabs.watchtower.monitor-only"
@@ -450,7 +455,7 @@ services:
       - POSTGRES_PASSWORD=${DB_PASSWD:-test}
       - POSTGRES_DB=${DB_NAME:-gitea}
     networks:
-      #- t2_proxy
+      #- traefik_proxy
       - databases
     volumes:
       - ${VOLUMES}/gitea-db:/var/lib/postgresql/data
@@ -476,6 +481,9 @@ services:
       - 8920:8920
       #- 7359:7359/udp #optional
       #- 1900:1900/udp #optional
+    networks:
+      traefik_proxy:
+        ipv4_address: 192.168.90.144 # You can specify a static IP
     volumes:
       - "${VOLUMES}/jellyfin:/config:rw"
       - "${VOLUMES}/jellyfin/cache:/cache:rw"
@@ -512,9 +520,6 @@ services:
       - traefik.http.routers.jellyfin-https.service=jellyfin-svc
       - traefik.http.routers.jellyfin-https.middlewares=chain-no-auth@file
       - traefik.http.services.jellyfin-svc.loadbalancer.server.port=8096
-    networks:
-      t2_proxy:
-        ipv4_address: 192.168.90.144 # You can specify a static IP
 
  # emby - Media Server
   emby:
@@ -527,6 +532,9 @@ services:
     #expose:
       #- 7359:7359/udp #optional
       #- 1900:1900/udp #optional
+    networks:
+      traefik_proxy:
+        ipv4_address: 192.168.90.145 # You can specify a static IP
     volumes:
       - "${VOLUMES}/emby:/config:rw"
       - "${VOLUMES}/emby/cache:/cache:rw"
@@ -564,7 +572,5 @@ services:
       - traefik.http.routers.emby-https.tls.certresolver=tlsle
       - traefik.http.routers.emby-https.middlewares=chain-no-auth@file
       - traefik.http.services.emby-svc.loadbalancer.server.port=8096
-    networks:
-      t2_proxy:
-        ipv4_address: 192.168.90.145 # You can specify a static IP
+
 
