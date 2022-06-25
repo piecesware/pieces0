@@ -1,0 +1,120 @@
+networks:
+  nextcloudfpm-internal:
+    driver: bridge
+  traefik_proxy:
+    name: traefik_proxy
+    driver: bridge
+
+services:  
+  mariadb-ncfpm:
+    image: mariadb:latest #${nextcloudfpmmariadbVersion}
+    command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW
+    # Set to allow easy Docker DNS name resolution - not strictly necessary
+    container_name: mariadb-ncfpm
+    # Same as above
+    hostname: mariadb-ncfpm
+    restart: always
+    volumes:
+      - ${VOLUMES}/nextcloud-fpm/db/:/var/lib/mysql/
+    networks:
+      - nextcloudfpm-internal
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_NCFPM__ROOT_PASSWORD}
+      - MYSQL_PASSWORD=${MYSQL_NCFPM_PASSWORD}
+      - MYSQL_DATABASE=nextcloud
+      - MYSQL_USER=nextcloud
+
+  redis-ncfpm: # used for locking
+    image: redis:alpine #${nextcloudfpmredisVersion}
+    # Set to allow easy Docker DNS name resolution - not strictly necessary
+    container_name: redis-ncfpm
+    # Same as above
+    hostname: redis-ncfpm
+    networks:
+      - nextcloudfpm-internal
+    # Persistent volumes with bind mounts to easily move/backup data
+    volumes:
+    # I like to use the /opt folder to hold my Docker bind mounted volumes
+      - ${VOLUMES}/nextcloud-redis:/data
+
+
+  nextcloud-fpm:
+    image: nextcloud:fpm-alpine #${nextcloudfpmVersion}
+    # Set to allow easy Docker DNS name resolution - not strictly necessary
+    container_name: nextcloud-fpm
+    # Same as above
+    hostname: nextcloud-fpm
+    links:
+      - mariadb-ncfpm
+      - redis-ncfpm
+    depends_on:
+      - mariadb-ncfpm
+      - redis-ncfpm
+    volumes:
+      - ${VOLUMES}/nextcloud-fpm/:/var/www/html/
+      - ${VOLUMES}/nextcloud-fpm/nextcloud-data/:/data/
+    networks:
+      - nextcloudfpm-internal
+      - traefik_proxy
+        ipv4_address: 192.168.90.231 # You can specify a static IP
+    restart: always
+    environment:
+      OVERWRITEPROTOCOL: https
+
+  web:
+    image: nginx:1.17.10-alpine #${nginxVersion}
+    # access is normaly done via Traefik
+    # enable this port if you need direct access for debugging your setup
+    #ports:
+    #  - 8080:80
+    #links:
+      #- app
+    volumes:
+      - ${VOLUMES}/nginx-nextcloud/nginx.conf:/etc/nginx/nginx.conf:ro
+    volumes_from:
+      - app
+    networks:
+      - nextcloudfpm-internal
+      - traefik_proxy
+        ipv4_address: 192.168.90.221 # You can specify a static IP
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
+      - "traefik.http.middlewares.nextcloud-https.redirectscheme.scheme=https"
+      - "traefik.http.routers.nextcloud-http.entrypoints=http"
+      - "traefik.http.routers.nextcloud-http.rule=Host(`nctest.bfoa.info`)"
+      - "traefik.http.routers.nextcloud-http.middlewares=nextcloud-https@docker"
+      - "traefik.http.routers.nextcloud.entrypoints=https"
+      - "traefik.http.routers.nextcloud.rule=Host(`nctest.bfoa.info`)"
+      - "traefik.http.routers.nextcloud.tls=true"
+      - "traefik.http.routers.nextcloud.tls.certresolver=tlsle"
+      - "traefik.http.middlewares.nextcloud.compress=true"
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.regex=^/.well-known/ca(l|rd)dav"
+      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement=/remote.php/dav/"
+      - "traefik.http.middlewares.nc-header.headers.referrerPolicy=no-referrer"
+      - "traefik.http.middlewares.nc-header.headers.stsSeconds=31536000"
+      - "traefik.http.middlewares.nc-header.headers.forceSTSHeader=true"
+      - "traefik.http.middlewares.nc-header.headers.stsPreload=true"
+      - "traefik.http.middlewares.nc-header.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.nc-header.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.nc-header.headers.customFrameOptionsValue=SAMEORIGIN"
+      - "traefik.http.middlewares.nc-header.headers.customRequestHeaders.X-Forwarded-Proto=https"
+      - "traefik.http.routers.nextcloud-secure.middlewares=nextcloud-dav,nc-header"
+    restart: always
+  cron:
+    image: nextcloud:fpm-alpine #${nextcloudfpmVersion}
+    restart: always
+    links:
+      - mariadb-ncfpm
+      - redis-ncfpm
+    depends_on:
+      - mariadb-ncfpm
+      - redis-ncfpm
+    volumes:
+      - ${VOLUMES}/nextcloud-fpm/cron/:/etc/crontabs/
+      - ${VOLUMES}/nextcloud-fpm/nextcloud/:/var/www/html/
+      - ${VOLUMES}/nextcloud-fpm/nextcloud-data/:/data/
+    networks:
+      - nextcloudfpm-internal
+    entrypoint: /cron.sh

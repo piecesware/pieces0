@@ -1,19 +1,14 @@
 version: "3.9"
 networks:
-  t2_proxy:
-    name: t2_proxy
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 192.168.90.0/24
+  traefik_proxy:
+    name: traefik_proxy
+    external: true
   default:
     driver: bridge
   socket_proxy:
     name: socket_proxy
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 192.168.91.0/24
+    external: true
+
 services:
   bitwarden:
     image: vaultwarden/server:latest
@@ -21,10 +16,10 @@ services:
     security_opt:
       - no-new-privileges:true
     networks:
-      t2_proxy:
+      traefik_proxy:
         ipv4_address: 192.168.90.249 # You can specify a static IP
     environment:
-      # After you setted up your user(s) change to false
+      # After you set up your user(s) change to false
       - "SIGNUPS_ALLOWED=true"
     env_file:
       - ./.env
@@ -32,7 +27,7 @@ services:
       - ${VOLUMES}/vaultwarden/data/:/data
     labels:
       - traefik.enable=true
-      - traefik.docker.network=t2_proxy
+      - traefik.docker.network=traefik_proxy
       # Redirect to get the certs
       #- traefik.http.middlewares.redirect-https.redirectScheme.scheme=https
       #- traefik.http.middlewares.redirect-https.redirectScheme.permanent=true
@@ -55,5 +50,6 @@ services:
       - traefik.http.routers.bitwarden-websocket-http.rule=Host(`bw.${DOMAIN}`) && Path(`/notifications/hub`)
       - traefik.http.routers.bitwarden-websocket-http.entrypoints=http
       - traefik.http.routers.bitwarden-websocket-http.middlewares=redirect-to-https@file
+      - traefik.http.routers.bitwarden-websocket-http.middlewares=chain-bitwarden@file
       - traefik.http.routers.bitwarden-websocket-http.service=bitwarden-websocket
       - traefik.http.services.bitwarden-websocket.loadbalancer.server.port=3012

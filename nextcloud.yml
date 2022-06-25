@@ -1,6 +1,31 @@
 #version: "3.9"
 # Above we must declare the docker-compose file version which allows Docker to
 #    understand the syntax we are using. Normally does not need to change.
+## NextCloud – Your Own Cloud Storage
+
+  ## Suggested way to create NextCloud database using MariaDB
+    # docker exec -it mariadb mysql -uroot -p$MYSQL_ROOT_PASSWORD
+    # CREATE DATABASE nextcloud CHARACTER SET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+    # GRANT ALL PRIVILEGES ON nextcloud.* TO 'nextcloud'@'nextcloud.mariadb'IDENTIFIED BY '<password>';
+    # FLUSH PRIVILEGES;
+    # exit
+  ## When signing in under Storage & database select MySQL/MariaDB and enter:
+    # Database user: your db user (nextcloud)
+    # Database password: your db password (<password>)
+    # Database name: your db name (nextcloud)
+    # localhost: mariadb:3306
+
+  ## If you have a Redis server you can connect to it in $USERDIR/docker/nextcloud/www/nextcloud/config/config.php: (Optional)
+    ## Add the following lines after " 'memcache.local' => '\\OC\\Memcache\\APCu', "
+    # 'memcache.distributed' => '\\OC\\Memcache\\Redis',
+    # 'memcache.locking' => '\\OC\\Memcache\\Redis',
+    # 'redis' => array(
+    #     'host' => 'redis',
+    #     'port' => 6379,
+    # ),
+
+  ## An example to run occ commands:
+    # docker exec -it nextcloud sudo --user abc php7 /config/www/nextcloud/occ db:add-missing-indices
 
 # Services (containers) we would like this document to run
 services:
@@ -13,11 +38,15 @@ services:
     hostname: nextcloud
     restart: unless-stopped
     # Defines how we want our container to connect outside
+    depends_on:
+      - nc-db
+      - nc-redis
     networks:
       # Use an internal network for the nextcloud services
-      - nextcloud
+      - nextcloud-internal
       ### Adding proxy network for communication with Traefik
       - traefik_proxy
+        ipv4_address: 192.168.90.230 # You can specify a static IP
     # Open ports in the format host:container - We will remove this later
     #ports:
       # INSECURE - we will remove this later after completing a few more steps in this guide
@@ -26,14 +55,29 @@ services:
     volumes:
       # I like to use the /opt folder to hold my Docker bind mounted volumes
       - ${VOLUMES}/nextcloud:/var/www/html
+      #- $USERDIR/docker/nextcloud:/config
+      #- /mnt/storage/files/nextcloud:/data
+      #- ./volume/nextcloud_app:/var/www/html
+      #- ./volume/nextcloud_data:/var/www/html/data
     env_file:
       - ./.env    
     # Environment (internal to the container) variables to simplify setup
     environment:
+      #- PUID=$PUID
+      #- PGID=$PGID
+      - TZ=$TZ
+      #- POSTGRES_DB=nextcloud
+      #- POSTGRES_USER=nextcloud
+      #- POSTGRES_PASSWORD=password
+      #- POSTGRES_HOST=ncpostgresdb
+      #- NEXTCLOUD_ADMIN_USER=admin
+      #- NEXTCLOUD_ADMIN_PASSWORD=adminpass
       # Redis host name (container_name)
       REDIS_HOST: nc-redis
+      REDIS_HOST_PASSWORD: ${REDIS_PASSWORD} 
+      OVERWRITEHOST: ${NEXTCLOUD_DOMAIN}
       ### Add your domain name - Specifying trusted domain for security
-      NEXTCLOUD_TRUSTED_DOMAIN: $NEXTCLOUD_DOMAIN_NAME
+      NEXTCLOUD_TRUSTED_DOMAIN: ${NEXTCLOUD_DOMAIN}
       ### Add local network as a trusted proxy - It's better to set the actual Traefik IP.
       ###   We will give it the range listed in the accompanying Traefik guide
       TRUSTED_PROXIES: 192.168.90.0/24
@@ -41,9 +85,10 @@ services:
     labels:
       # We set 'enable by default' to false, so this tells Traefik we want it to connect here
       - "traefik.enable=true"
+      - "traefik.docker.network=traefik_proxy"
       ## HTTP Routers
       - "traefik.http.routers.nextcloud.entrypoints=https"
-      - "traefik.http.routers.nextcloud.rule=Host(`$NEXTCLOUD_DOMAIN_NAME`)"
+      - "traefik.http.routers.nextcloud.rule=Host(`${NEXTCLOUD_DOMAIN}`)"
       - "traefik.http.routers.nextcloud.tls=true"
       - traefik.http.routers.nextcloud.tls.certresolver=tlsle
       ## Middlewares
@@ -52,9 +97,24 @@ services:
       ## HTTP Services
       - "traefik.http.routers.nextcloud.service=nextcloud"
       - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.regex=^/.well-known/ca(l|rd)dav"
+      - "traefik.http.middlewares.nextcloud-dav.replacepathregex.replacement=/remote.php/dav/"
+
+  ncpostgresdb:
+    container_name: ncpostgresdb
+    restart: always
+    image: postgres:${ncpostgresVersion}
+    networks:
+      - nextcloud-internal
+    environment:
+    - POSTGRES_USER=nextcloud
+    - POSTGRES_PASSWORD=${NC_POSTGRES_PASSWORD}
+    - POSTGRES_DB=nextcloud
+    volumes:
+    - ${VOLUMES}/nc-postgres:/var/lib/postgresql/data
 
   # Nextcloud Database - Using MariaDB, but can also use MySQL or PostgreSQL
-  nextcloud-db:
+  nc-db:
     image: mariadb:${ncmariadbVersion} #10.5
     # Set container_name to allow easy Docker DNS name resolution - not strictly necessary
     container_name: nc-db
@@ -66,34 +126,37 @@ services:
     # Defines how we want our container to connect outside
     networks:
       # ONLY using an internal network and not expose to the internet
-      - nextcloud
+      - nextcloud-internal
     # Persistent volumes with bind mounts to easily move/backup data
     volumes:
+        - /etc/localtime:/etc/localtime:ro
+        - /etc/timezone:/etc/timezone:ro
       # I like to use the /opt folder to hold my Docker bind mounted volumes
       - ${VOLUMES}/nextcloud-db:/var/lib/mysql
     # We add our secrets here
-    secrets:
-      - db_root_password
-      - db_password
+    #secrets:
+      #- db_root_password
+      #- db_password
     # Environment (internal to the container) variables to simplify setup (notice the secrets used below)
     environment:
       MYSQL_USER: nextcloud
       MYSQL_DATABASE: nextcloud
-      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/db_root_password
-      MYSQL_PASSWORD_FILE: /run/secrets/db_password
+      MYSQL_ROOT_PASSWORD_FILE: ${MYSQL_ROOT_PASSWORD} #/run/secrets/db_root_password
+      MYSQL_PASSWORD_FILE: ${MYSQL_PASSWORD} #/run/secrets/db_password
 
   # Nextcloud (in memory) Redis Cache - speed up lookup transactions
   # Speeds up Nextcloud by reducing the time spent "looking" for things
   nc-redis:
-    image: redis:${ncredisVersion} #6.2-alpine
+    image: redis:${ncredisVersion} #6.2-alpine, 6.2.3
     # Set to allow easy Docker DNS name resolution - not strictly necessary
     container_name: nc-redis
     hostname: nc-redis
     restart: unless-stopped
     # Defines how we want our container to connect to other containers
+    #command: redis-server --requirepass ${REDIS_PASSWORD}
     networks:
     # ONLY using an internal network and not exposing to the internet
-      - nextcloud
+      - nextcloud-internal
     # Persistent volumes with bind mounts to easily move/backup data
     volumes:
     # I like to use the /opt folder to hold my Docker bind mounted volumes
@@ -104,16 +167,17 @@ services:
 networks:
   # Internal facing network for Nextcloud Docker containers
   nextcloud:
-    name: nextcloud
+    name: nextcloud-internal
     # Define how we want the network created
     driver: bridge
   ### Add to define external network to connect with Traefik
   traefik_proxy:
     name: traefik_proxy
+    external: true
 # Must use a high level declaration of our secrets (notice the use of the environmental variable 
 #   we set above in .env)
-secrets:
-   db_password:
-     file: $DOCKER_SECRETS_DIR/db_password
-   db_root_password:
-     file: $DOCKER_SECRETS_DIR/db_root_password
+#secrets:
+   #db_password:
+     #file: $DOCKER_SECRETS_DIR/db_password
+   #db_root_password:
+     #file: $DOCKER_SECRETS_DIR/db_root_password
