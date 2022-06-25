@@ -70,11 +70,11 @@ services:
       #- POSTGRES_USER=nextcloud
       #- POSTGRES_PASSWORD=password
       #- POSTGRES_HOST=ncpostgresdb
-      #- NEXTCLOUD_ADMIN_USER=admin
-      #- NEXTCLOUD_ADMIN_PASSWORD=adminpass
+      - NEXTCLOUD_ADMIN_USER=${NEXTCLOUD_ADMIN_USER}
+		  - NEXTCLOUD_ADMIN_PASSWORD=${NEXTCLOUD_ADMIN_PASSWORD}
       # Redis host name (container_name)
       REDIS_HOST: nc-redis
-      REDIS_HOST_PASSWORD: ${REDIS_PASSWORD} 
+      #REDIS_HOST_PASSWORD: ${REDIS_PASSWORD} 
       OVERWRITEHOST: ${NEXTCLOUD_DOMAIN}
       ### Add your domain name - Specifying trusted domain for security
       NEXTCLOUD_TRUSTED_DOMAIN: ${NEXTCLOUD_DOMAIN}
@@ -82,6 +82,11 @@ services:
       ###   We will give it the range listed in the accompanying Traefik guide
       TRUSTED_PROXIES: 192.168.90.0/24
       OVERWRITEPROTOCOL: https
+      - SMTP_HOST=${SMTP_HOST}
+		  - SMTP_PORT=${SMTP_PORT}
+		  - SMTP_NAME=${SMTP_NAME}
+		  - SMTP_PASSWORD=${SMTP_PASSWORD}
+		  - MAIL_FROM_ADDRESS=${MAIL_FROM_ADDRESS}
     labels:
       # We set 'enable by default' to false, so this tells Traefik we want it to connect here
       - "traefik.enable=true"
@@ -123,6 +128,8 @@ services:
     # Recommended database settings as listed in:
     # https://docs.nextcloud.com/server/21/admin_manual/configuration_database/linux_database_configuration.html
     command: --transaction-isolation=READ-COMMITTED --log-bin=msqyld-bin --binlog-format=ROW
+    # https://markontech.com/docker/setup-nextcloud-with-redis-using-docker/
+    #command: --transaction-isolation=READ-COMMITTED --binlog-format=ROW --innodb-file-per-table=1 --skip-innodb-read-only-compressed
     # Defines how we want our container to connect outside
     networks:
       # ONLY using an internal network and not expose to the internet
@@ -152,8 +159,8 @@ services:
     container_name: nc-redis
     hostname: nc-redis
     restart: unless-stopped
-    # Defines how we want our container to connect to other containers
     #command: redis-server --requirepass ${REDIS_PASSWORD}
+    # Defines how we want our container to connect to other containers
     networks:
     # ONLY using an internal network and not exposing to the internet
       - nextcloud-internal
